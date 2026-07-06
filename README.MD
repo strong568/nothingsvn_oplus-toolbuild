@@ -94,6 +94,14 @@ bash build.sh <URL_OF_FIRMWARE_OTA> y
 bash build.sh <PATH_TO_FIRMWARE_FILE> y
 ```
 
+**Option C** — Build from a folder of pre-unpacked partition images:
+
+```bash
+bash build.sh <PATH_TO_PARTITION_IMG_FOLDER> y
+```
+
+The folder must contain `.img` files such as `system.img`, `vendor.img`, `product.img`, `odm.img`, `my_product.img`, etc. The toolchain skips `payload.bin` extraction and uses these images directly.
+
 
 ## ☁️ GitHub Actions (CI/CD)
 

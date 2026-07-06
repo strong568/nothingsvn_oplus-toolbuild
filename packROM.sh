@@ -52,6 +52,7 @@ cp -rf $work_dir/bin/script2flash/my_company.img $work_dir/out/${NTBUILD}_${DEVI
 cp -rf $work_dir/bin/script2flash/my_preload.img $work_dir/out/${NTBUILD}_${DEVICE_MODEL}_${ANDROID_VER}_OS${BASE_BUILD_ID}/system/
 
 mv -f $work_dir/build/baserom/images/*.img $work_dir/out/${NTBUILD}_${DEVICE_MODEL}_${ANDROID_VER}_OS${BASE_BUILD_ID}/firmware-update/
+rm -f $work_dir/out/${NTBUILD}_${DEVICE_MODEL}_${ANDROID_VER}_OS${BASE_BUILD_ID}/firmware-update/super.img
 
 # generate dynamic script
 cp -rf $work_dir/bin/script2flash/META-INF $work_dir/out/${NTBUILD}_${DEVICE_MODEL}_${ANDROID_VER}_OS${BASE_BUILD_ID}/
@@ -70,7 +71,6 @@ else
   rm -rf $work_dir/out
   echo "[SCRIPT] - LocalBuild completed"
 fi
-
 
 
 

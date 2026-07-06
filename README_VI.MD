@@ -94,6 +94,14 @@ bash build.sh <URL_FIRMWARE_OTA> y
 bash build.sh <ĐƯỜNG_DẪN_FILE_FIRMWARE> y
 ```
 
+**Cách C** — Build từ thư mục chứa partition image đã unpack sẵn:
+
+```bash
+bash build.sh <ĐƯỜNG_DẪN_THƯ_MỤC_CHỨA_IMG> y
+```
+
+Thư mục cần chứa các file `.img` như `system.img`, `vendor.img`, `product.img`, `odm.img`, `my_product.img`, v.v. Toolchain sẽ bỏ qua bước extract `payload.bin` và dùng trực tiếp các image này.
+
 
 ## ☁️ GitHub Actions (CI/CD)
 

@@ -8,24 +8,35 @@ prefix_id="$4"
 builder_name="$5"
 builder_id="$6"
 work_dir=$(pwd)
-tools_dir=${work_dir}/bin/$(uname)/$(uname -m)export PATH=$(pwd)/bin/$(uname)/$(uname -m)/:$PATH
+tools_dir=${work_dir}/bin/$(uname)/$(uname -m)
+export PATH=${tools_dir}:$PATH
 chmod 777 ${work_dir}/bin/*
 chmod 777 ${work_dir}/bin/Linux/x86_64/*
 source $work_dir/functions.sh
 check unzip aria2c curl 7z zip java zipalign python3 zstd bc xmlstarlet aapt
 python3 $work_dir/notify.py download "$repo_name" "$baserom" "$prefix_id" "$builder_name" "$builder_id"
-source "$work_dir/bin/ddevice/getROM.sh" "$baserom"
 BLOB="$work_dir/bin/package/UpdateFile/OOSExtenstionUni"
+super_list="system system_ext product vendor odm my_product my_engineering my_stock my_carrier my_region my_bigball my_heytap my_manifest vendor_dlkm system_dlkm odm_dlkm system_ext_dlkm product_dlkm"
 
 python3 $work_dir/notify.py unpack "$repo_name" "$baserom" "$prefix_id" "$builder_name" "$builder_id"
-if unzip -l ${baserom} | grep -q "payload.bin"; then
-    baserom_type="payload"
-    echo "[UNPACK] - This is payload.bin ROM!Vaildation..."
-    super_list="system system_ext product vendor odm my_product my_engineering my_stock my_carrier my_region my_bigball my_heytap my_manifest vendor_dlkm system_dlkm odm_dlkm system_ext_dlkm product_dlkm"
-    echo "[UNPACK] - ROM validation passed."
+if [[ -d "$baserom" ]]; then
+    baserom_type="images_dir"
+    images_source=$(cd "$baserom" && pwd)
+    echo "[UNPACK] - Partition image folder detected: $images_source"
+    if ! find "$images_source" -maxdepth 1 -type f -name "*.img" | grep -q .; then
+        error "[UNPACK] - No partition .img files found in folder."
+        exit 1
+    fi
 else
-    echo "[UNPACK] - Unpack failed"
-    exit 1
+    source "$work_dir/bin/ddevice/getROM.sh" "$baserom"
+    if unzip -l "$baserom" | grep -q "payload.bin"; then
+        baserom_type="payload"
+        echo "[UNPACK] - This is payload.bin ROM!Vaildation..."
+        echo "[UNPACK] - ROM validation passed."
+    else
+        echo "[UNPACK] - Unpack failed"
+        exit 1
+    fi
 fi
 
 rm -rf app
@@ -38,11 +49,17 @@ find . -type d -name 'miui_*' | xargs rm -rf
 echo "[SYSTEM] - Files cleaned up."
 mkdir -p build/baserom/images/
 
-echo "[UNPACK] - Extracting files from BASEROM [payload.bin]"
-unzip ${baserom} payload.bin -d build/baserom >/dev/null 2>&1 || error "Extracting [payload.bin] error"
-echo "[UNPACK] - [payload.bin] extracted."
-echo "[UNPACK] - Unpacking BASEROM [payload.bin]"
-payload-extract extract -o build/baserom/images/ build/baserom/payload.bin >/dev/null 2>&1 || error "Unpacking [payload.bin] failed"        
+if [[ "$baserom_type" == "payload" ]]; then
+    echo "[UNPACK] - Extracting files from BASEROM [payload.bin]"
+    unzip "$baserom" payload.bin -d build/baserom >/dev/null 2>&1 || error "Extracting [payload.bin] error"
+    echo "[UNPACK] - [payload.bin] extracted."
+    echo "[UNPACK] - Unpacking BASEROM [payload.bin]"
+    payload-extract extract -o build/baserom/images/ build/baserom/payload.bin >/dev/null 2>&1 || error "Unpacking [payload.bin] failed"
+elif [[ "$baserom_type" == "images_dir" ]]; then
+    echo "[UNPACK] - Copying partition images from folder"
+    find "$images_source" -maxdepth 1 -type f -name "*.img" -exec cp -f {} "$work_dir/build/baserom/images/" \;
+fi
+
 for part in system system_ext product vendor odm my_product my_engineering my_stock my_carrier my_region my_bigball my_heytap my_manifest ;do
     extract_partition $work_dir/build/baserom/images/${part}.img $work_dir/build/baserom/images
     PACK_TYPE=$(cat $work_dir/bin/ddevice/fstype.txt)
