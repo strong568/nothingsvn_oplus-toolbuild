@@ -12,11 +12,11 @@ ANDROID_VER=$(cat $work_dir/bin/ddevice/androidver.txt)
 
 if [[ $ANDROID_VER == "15" || $ANDROID_VER == "14" ]]; then
 
-change_prop ro.build.version.oplusrom.display "$DEFAULT_VALUE | NTMods $NOTHING_VERSION"
+change_prop ro.build.version.oplusrom.display "$DEFAULT_VALUE | NTMods by Ann $NOTHING_VERSION"
 
 if [[ $BRAND == "RealmeUI" ]]; then
   DEFAULT_VALUE1=$(get_prop ro.build.version.realmeui)
-  change_prop ro.build.version.oplusrom.display "$DEFAULT_VALUE | NTMods $NOTHING_VERSION"
+  change_prop ro.build.version.oplusrom.display "$DEFAULT_VALUE | NTMods by Ann $NOTHING_VERSION"
 fi
 
 else
