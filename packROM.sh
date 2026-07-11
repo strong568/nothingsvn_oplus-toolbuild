@@ -62,8 +62,11 @@ echo "[SCRIPT] - Done"
 if [[ $localbuild != "y" ]]; then
   find out/${NTBUILD}_${DEVICE_MODEL}_${ANDROID_VER}_OS${BASE_BUILD_ID} |xargs touch
   pushd out/${NTBUILD}_${DEVICE_MODEL}_${ANDROID_VER}_OS${BASE_BUILD_ID}/ || exit
-  zip -r ${NTBUILD}_${DEVICE_MODEL}_${ANDROID_VER}_OS${BASE_BUILD_ID}.zip ./*
-  mv ${NTBUILD}_${DEVICE_MODEL}_${ANDROID_VER}_OS${BASE_BUILD_ID}.zip ../
+  if command -v 7z &>/dev/null; then
+    7z a -tzip -mx=1 -mmt=on ../${NTBUILD}_${DEVICE_MODEL}_${ANDROID_VER}_OS${BASE_BUILD_ID}.zip ./* >/dev/null
+  else
+    zip -r ../${NTBUILD}_${DEVICE_MODEL}_${ANDROID_VER}_OS${BASE_BUILD_ID}.zip ./*
+  fi
   popd || exit
   echo "[SCRIPT] - Build completed"
 else

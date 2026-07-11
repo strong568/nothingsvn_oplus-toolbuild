@@ -14,11 +14,15 @@ chmod 777 ${work_dir}/bin/*
 chmod 777 ${work_dir}/bin/Linux/x86_64/*
 source $work_dir/functions.sh
 check unzip aria2c curl 7z zip java zipalign python3 zstd bc xmlstarlet aapt
-python3 $work_dir/notify.py download "$repo_name" "$baserom" "$prefix_id" "$builder_name" "$builder_id"
+if [ -n "$TELEGRAM_BOT_TOKEN" ] && [ -n "$TELEGRAM_CHANNEL_ID" ]; then
+    python3 $work_dir/notify.py download "$repo_name" "$baserom" "$prefix_id" "$builder_name" "$builder_id"
+fi
 BLOB="$work_dir/bin/package/UpdateFile/OOSExtenstionUni"
 super_list="system system_ext product vendor odm my_product my_engineering my_stock my_carrier my_region my_bigball my_heytap my_manifest vendor_dlkm system_dlkm odm_dlkm system_ext_dlkm product_dlkm"
 
-python3 $work_dir/notify.py unpack "$repo_name" "$baserom" "$prefix_id" "$builder_name" "$builder_id"
+if [ -n "$TELEGRAM_BOT_TOKEN" ] && [ -n "$TELEGRAM_CHANNEL_ID" ]; then
+    python3 $work_dir/notify.py unpack "$repo_name" "$baserom" "$prefix_id" "$builder_name" "$builder_id"
+fi
 if [[ -d "$baserom" ]]; then
     baserom_type="images_dir"
     images_source=$(cd "$baserom" && pwd)
@@ -71,7 +75,9 @@ bash $work_dir/bin/ddevice/modifyINFO.sh
 main
 
 # Gửi thông báo đang Build với đầy đủ Codename và Version
-python3 $work_dir/notify.py build "$repo_name" "$baserom" "$prefix_id" "$builder_name" "$builder_id"
+if [ -n "$TELEGRAM_BOT_TOKEN" ] && [ -n "$TELEGRAM_CHANNEL_ID" ]; then
+    python3 $work_dir/notify.py build "$repo_name" "$baserom" "$prefix_id" "$builder_name" "$builder_id"
+fi
 
 rm -rf config
 if [ -f $work_dir/${baserom}.zip ]; then
@@ -86,46 +92,82 @@ remove_fsv "$work_dir/build/baserom/images/system_ext"
 
 cp -rf $BLOB/feature_com.hma.otablock.xml $MY_STOCK/etc/extension
 
+echo "[REPACK] - Packing partitions in parallel (max 4 jobs)..."
+REPACK_LOG_DIR=$(mktemp -d)
 
-echo "[REPACK] - Packing partition..."
+repack_one() {
+    local pname=$1
+    local work_dir=$2
+    local PACK_TYPE=$3
+    local log_dir=$4
+
+    thisSize=$(du -sb $work_dir/build/baserom/images/${pname} 2>/dev/null | awk '{print $1}')
+    [ -z "$thisSize" ] && { echo "FAIL" > "$log_dir/${pname}"; return; }
+    case $pname in
+        odm) addSize=134217728 ;;
+        system) addSize=154217728 ;;
+        vendor) addSize=154217728 ;;
+        system_ext) addSize=154217728 ;;
+        product) addSize=204217728 ;;
+        *) addSize=8554432 ;;
+    esac
+    thisSize=$(echo "$thisSize + $addSize" | bc)
+
+    if [[ "$PACK_TYPE" == "EXT" ]]; then
+        echo "[REPACK] - Packing [${pname}.img]:[${PACK_TYPE}] with size [${thisSize}]"
+        python3 $work_dir/bin/fspatch.py $work_dir/build/baserom/images/${pname} $work_dir/build/baserom/images/config/${pname}_fs_config >/dev/null 2>&1
+        python3 $work_dir/bin/contextpatch.py $work_dir/build/baserom/images/${pname} $work_dir/build/baserom/images/config/${pname}_file_contexts >/dev/null 2>&1
+        make_ext4fs -J -T $(date +%s) -S $work_dir/build/baserom/images/config/${pname}_file_contexts -l $thisSize -C $work_dir/build/baserom/images/config/${pname}_fs_config -L ${pname} -a ${pname} $work_dir/build/baserom/images/${pname}.img $work_dir/build/baserom/images/${pname} >/dev/null 2>&1
+    elif [[ "$PACK_TYPE" == "EROFS" ]]; then
+        echo "[REPACK] - Packing [${pname}.img]:[${PACK_TYPE}] with size [${thisSize}]"
+        python3 $work_dir/bin/fspatch.py $work_dir/build/baserom/images/${pname} $work_dir/build/baserom/images/config/${pname}_fs_config >/dev/null 2>&1
+        python3 $work_dir/bin/contextpatch.py $work_dir/build/baserom/images/${pname} $work_dir/build/baserom/images/config/${pname}_file_contexts >/dev/null 2>&1
+        mkfs.erofs --quiet -zlz4hc,9 --mount-point ${pname} --fs-config-file=$work_dir/build/baserom/images/config/${pname}_fs_config --file-contexts=$work_dir/build/baserom/images/config/${pname}_file_contexts $work_dir/build/baserom/images/${pname}.img $work_dir/build/baserom/images/${pname} >/dev/null 2>&1
+    else
+        echo "SKIP" > "$log_dir/${pname}"
+        return
+    fi
+
+    if [ -f "$work_dir/build/baserom/images/${pname}.img" ]; then
+        echo "OK" > "$log_dir/${pname}"
+    else
+        echo "FAIL" > "$log_dir/${pname}"
+    fi
+}
+
+MAX_JOBS=4
+running=0
 for pname in ${super_list}; do
     if [ -d "$work_dir/build/baserom/images/$pname" ]; then
-        thisSize=$(du -sb $work_dir/build/baserom/images/${pname} | awk '{print $1}')
-         case $pname in
-             odm) addSize=134217728 ;;
-             system) addSize=154217728 ;;
-             vendor) addSize=154217728 ;;
-             system_ext) addSize=154217728 ;;
-             product) addSize=204217728 ;;
-             *) addSize=8554432 ;;
-         esac
-        thisSize=$(echo "$thisSize + $addSize" | bc)
-        if [[ "$PACK_TYPE" == "EXT" ]]; then
-            echo -ne "[REPACK] - Packing [${pname}.img]:[$PACK_TYPE] with size [$thisSize] - " 
-            python3 $work_dir/bin/fspatch.py $work_dir/build/baserom/images/${pname} $work_dir/build/baserom/images/config/${pname}_fs_config >/dev/null 2>&1
-            python3 $work_dir/bin/contextpatch.py $work_dir/build/baserom/images/${pname} $work_dir/build/baserom/images/config/${pname}_file_contexts >/dev/null 2>&1
-            make_ext4fs -J -T $(date +%s) -S $work_dir/build/baserom/images/config/${pname}_file_contexts -l $thisSize -C $work_dir/build/baserom/images/config/${pname}_fs_config -L ${pname} -a ${pname} $work_dir/build/baserom/images/${pname}.img $work_dir/build/baserom/images/${pname} >/dev/null 2>&1
-            if [ -f "$work_dir/build/baserom/images/${pname}.img" ]; then
-                echo "Success"
-            else
-                error "Failed"
-            fi
-        elif [[ "$PACK_TYPE" == "EROFS" ]]; then
-            echo -ne "[REPACK] - Packing [${pname}.img]:[$PACK_TYPE] with size [$thisSize] - "
-            python3 $work_dir/bin/fspatch.py $work_dir/build/baserom/images/${pname} $work_dir/build/baserom/images/config/${pname}_fs_config >/dev/null 2>&1
-            python3 bin/contextpatch.py $work_dir/build/baserom/images/${pname} $work_dir/build/baserom/images/config/${pname}_file_contexts >/dev/null 2>&1
-            mkfs.erofs --quiet -zlz4hc,9 --mount-point ${pname} --fs-config-file=$work_dir/build/baserom/images/config/${pname}_fs_config --file-contexts=$work_dir/build/baserom/images/config/${pname}_file_contexts $work_dir/build/baserom/images/${pname}.img $work_dir/build/baserom/images/${pname} >/dev/null 2>&1
-            if [ -f "$work_dir/build/baserom/images/${pname}.img" ]; then
-                echo "Success"
-            else
-                error "Failed"
-            fi
-        else
-            error "[REPACK] - Unable to handle img, exit."
-            exit 1
+        repack_one "$pname" "$work_dir" "$PACK_TYPE" "$REPACK_LOG_DIR" &
+        running=$((running + 1))
+        if [ $running -ge $MAX_JOBS ]; then
+            wait -n 2>/dev/null || true
+            running=$((running - 1))
         fi
     fi
 done
+wait
+
+REPACK_FAILED=0
+for pname in ${super_list}; do
+    if [ -d "$work_dir/build/baserom/images/$pname" ]; then
+        result=$(cat "$REPACK_LOG_DIR/${pname}" 2>/dev/null)
+        if [ "$result" = "OK" ]; then
+            echo "[REPACK] - [${pname}.img] Success"
+        else
+            error "[REPACK] - [${pname}.img] Failed"
+            REPACK_FAILED=1
+        fi
+    fi
+done
+rm -rf "$REPACK_LOG_DIR"
+
+if [ $REPACK_FAILED -eq 1 ]; then
+    error "[REPACK] - One or more partitions failed to repack, exit."
+    exit 1
+fi
+
 
 if [[ $localbuild = "y" ]]; then
     bash $work_dir/packROM.sh y
