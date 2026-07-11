@@ -12,13 +12,12 @@ on:
       builder_id:
         description: 'ID người build'
         required: false
-      
+
 jobs:
   Build:
     runs-on: ubuntu-latest
     env:
-      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-      TELEGRAM_CHANNEL_ID: ${{ secrets.TELEGRAM_CHANNEL_ID }}
+      GH_TOKEN: ${{ secrets.GH_TOKEN }}
     steps:
 
       - name: Clean All Unused file,application
@@ -38,14 +37,9 @@ jobs:
           remove-dotnet: 'true'
           remove-android: 'true'
           remove-haskell: 'true'
-          
+
       - name: Checkout repository
         uses: actions/checkout@main
-
-      - name: Start Notify
-        run: |
-          pip install requests
-          python notify.py start "${{ github.repository }}" "${{ inputs.input_url }}" "oplus" "${{ inputs.builder_name }}" "${{ inputs.builder_id }}"
 
       - name: Set up Time
         run: |
@@ -61,7 +55,7 @@ jobs:
       - name: Install Stuff
         run: |
           sudo bash setup.sh
-        
+
       - name: Giving permission
         run: |
           sudo chmod 777 -R *
@@ -74,24 +68,15 @@ jobs:
 
       - name: Pack ROM...
         run: |
-          python notify.py pack "${{ github.repository }}" "${{ inputs.input_url }}" "oplus" "${{ inputs.builder_name }}" "${{ inputs.builder_id }}"
           sudo bash packROM.sh n
 
-      - name: Setup Rclone...
+      - name: Upload to GitHub Releases
         run: |
-          sudo -E bash uploadROM.sh setup "${{ secrets.GH_TOKEN }}" "${{ secrets.GH_REPO }}" "${{ secrets.RCLONE_TOKEN_PATH }}"
-          
-      - name: Upload ROM...
-        run: |
-          python notify.py upload "${{ github.repository }}" "${{ inputs.input_url }}" "oplus" "${{ inputs.builder_name }}" "${{ inputs.builder_id }}"
-          sudo -E bash uploadROM.sh
-      
-      - name: Success Notification
-        if: success()
-        run: |
-          python notify.py success "${{ github.repository }}" "${{ inputs.input_url }}" "oplus" "${{ inputs.builder_name }}" "${{ inputs.builder_id }}"
-
-      - name: Failure Notification
-        if: failure()
-        run: |
-          python notify.py fail "${{ github.repository }}" "${{ inputs.input_url }}" "oplus" "${{ inputs.builder_name }}" "${{ inputs.builder_id }}"
+          zip_file=$(find out/ -maxdepth 2 -type f -name "*.zip" ! -name "oplusrom.zip" | head -1)
+          ANDROID_VER=$(cat bin/ddevice/androidver.txt 2>/dev/null || echo "unknown")
+          DEVICE_MODEL=$(cat bin/ddevice/device_model.txt 2>/dev/null || echo "unknown")
+          BASE_BUILD_ID=$(cat bin/ddevice/base_build_id.txt 2>/dev/null || echo "unknown")
+          BRAND=$(cat bin/ddevice/brand.txt 2>/dev/null || echo "")
+          if [[ "$BRAND" == "OnePlus" ]]; then NTBUILD="ColorOS"; elif [[ "$BRAND" == "OnePlus_Global" ]]; then NTBUILD="OxygenOS"; else NTBUILD="ROM"; fi
+          TAG="${NTBUILD}_${DEVICE_MODEL}_${ANDROID_VER}_OS${BASE_BUILD_ID}"
+          gh release create "$TAG" "$zip_file" --title "$TAG" --notes "Build từ ${{ inputs.input_url }}" || true
