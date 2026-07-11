@@ -15,6 +15,8 @@ elif [[ $ROMVERSION == "16.0.0" || $ROMVERSION == "16.0.1" || $ROMVERSION == "16
     bash $work_dir/bin/package/OS160/insmod.sh
 elif [[ $ROMVERSION == "V15.0.0" && $ANDROID_VER == "15" ]]; then
     bash $work_dir/bin/package/OS150/insmod.sh
+elif [[ $ROMVERSION == "V16.0.8" && $ANDROID_VER == "16" ]]; then
+    bash $work_dir/bin/package/OS168/insmod.sh
 fi
 fi
 
