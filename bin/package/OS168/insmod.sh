@@ -5,10 +5,9 @@ work_dir=$(pwd)
 source $work_dir/functions.sh
 source $work_dir/bin/ddevice/fetchINFO.sh
 
-# Lấy major.minor.patch từ ROMVERSION (VD: 16.0.8.401 -> 16.0.8)
-ROMVERSION_SHORT=$(echo "$ROMVERSION" | grep -oE '^[0-9]+\.[0-9]+\.[0-9]+' | head -1)
+ROMVERSION_SHORT=$(echo "$ROMVERSION" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
 
-# Khớp các phiên bản OS16.8+: 16.0.6+, 16.0.8, 16.0.9, 16.1.x
+# Khớp ColorOS 16.0.6+, 16.0.8, 16.0.9, 16.1.x
 if [[ "$ANDROID_VER" == "16" ]] && [[ "$ROMVERSION_SHORT" =~ ^16\.(0\.[6-9]|1\.) ]]; then
     mods "Starting Apply ColorOS 16.8+ Mods..."
     TARGET_DIR="$work_dir/bin/package/OS168"
