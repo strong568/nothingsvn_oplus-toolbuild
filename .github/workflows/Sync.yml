@@ -19,8 +19,8 @@ on:
         default: 'nguyenan362'
         type: string
   # Bỏ dấu # bên dưới nếu muốn tự động đồng bộ mỗi 12 tiếng theo giá trị mặc định
-   schedule:
-     - cron: '0 */12 * * *'
+  # schedule:
+  #   - cron: '0 */12 * * *'
 
 permissions:
   contents: write
@@ -42,4 +42,3 @@ jobs:
           git fetch upstream "$BRANCH"
           git remote add origin "https://x-access-token:${TOKEN}@github.com/${{ github.repository }}.git"
           git push origin "FETCH_HEAD:refs/heads/${TARGET_BRANCH}" --force
-          
