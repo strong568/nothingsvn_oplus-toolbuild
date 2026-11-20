@@ -1,0 +1,45 @@
+name: Sync Upstream Branch
+
+on:
+  workflow_dispatch:
+    inputs:
+      upstream_url:
+        description: 'Link repo nguồn (Upstream Git URL)'
+        required: true
+        default: 'https://github.com/nguyenan362/re-nothingsvn_oplus-toolbuild.git'
+        type: string
+      branch:
+        description: 'Tên nhánh nguồn muốn đồng bộ'
+        required: true
+        default: 'main'
+        type: string
+      target_branch:
+        description: 'Tên nhánh đích trên repo của bạn'
+        required: true
+        default: 'nguyenan362'
+        type: string
+  # Bỏ dấu # bên dưới nếu muốn tự động đồng bộ mỗi 12 tiếng theo giá trị mặc định
+   schedule:
+     - cron: '0 */12 * * *'
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Sync branch from upstream
+        env:
+          UPSTREAM_URL: ${{ inputs.upstream_url || 'https://github.com/nguyenan362/re-nothingsvn_oplus-toolbuild.git' }}
+          BRANCH: ${{ inputs.branch || 'main' }}
+          TARGET_BRANCH: ${{ inputs.target_branch || 'nguyenan362' }}
+          TOKEN: ${{ secrets.GH_PAT || github.token }}
+        run: |
+          git init sync_repo
+          cd sync_repo
+          git remote add upstream "$UPSTREAM_URL"
+          git fetch upstream "$BRANCH"
+          git remote add origin "https://x-access-token:${TOKEN}@github.com/${{ github.repository }}.git"
+          git push origin "FETCH_HEAD:refs/heads/${TARGET_BRANCH}" --force
+          
